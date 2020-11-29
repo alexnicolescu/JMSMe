@@ -4,6 +4,10 @@ import javax.jms.*;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 public class Reader{
 
     private Topic topic;
@@ -15,34 +19,96 @@ public class Reader{
 
         public void onMessage(Message message) {
             try {
-                TextMessage theMessage = (TextMessage) message;
-                System.out.println("received: " + theMessage.getText());
+                ObjectMessage objMessage = (ObjectMessage)message;
+                News news = (News)objMessage.getObject();
+                if(news != null){
+                    System.out.println(news.getDomain());
+                    System.out.println(news.getAuthor());
+                    System.out.println(news.getSource());
+                    System.out.println(news.getText());
+                }
             } catch (JMSException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public void connect() throws JMSException {
-        String url = ActiveMQConnection.DEFAULT_BROKER_URL;
-        TopicConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
-        connection = connectionFactory.createTopicConnection();
-        session = connection.createTopicSession(false,Session.AUTO_ACKNOWLEDGE);
-        topic = session.createTopic("Topic");
-        TopicSubscriber theReader = session.createSubscriber(topic);
-        theReader.setMessageListener(new MessageHandler());
-        connection.start();
+    public  Reader(){
+        connect();
     }
 
-    public void close() throws JMSException {
-        connection.stop();
-        session.close();
-        connection.close();
+    public void connect(){
+        try {
+            String url = ActiveMQConnection.DEFAULT_BROKER_URL;
+            TopicConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
+            connection = connectionFactory.createTopicConnection();
+            session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
+            connection.start();
+        }catch (JMSException e){
+            System.out.println(e.getMessage());
+            System.exit(-1);
+        }
     }
 
-    public static void main(String[] args) throws JMSException {
+    public void close(){
+        try{
+            if(connection!=null) {
+                connection.stop();
+                session.close();
+                connection.close();
+            }
+        }catch(JMSException e){
+            System.out.println(e.getMessage());
+            System.exit(-1);
+        }
+
+    }
+
+    public void subscribe(BufferedReader in){
+        try {
+            System.out.println("Domain: ");
+            String domain = in.readLine();
+            System.out.println("Source: ");
+            String source = in.readLine();
+
+            topic = session.createTopic(domain + source);
+            TopicSubscriber theReader = session.createSubscriber(topic);
+            theReader.setMessageListener(new MessageHandler());
+        }catch(IOException e){
+            System.out.println(e.getMessage());
+            System.exit(-1);
+        }catch (JMSException e){
+            System.out.println(e.getMessage());
+            System.exit(-1);
+        }
+
+    }
+
+    public static void main(String[] args){
+
         Reader reader = new Reader();
-        reader.connect();
-        while(true);
+        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+
+        while (true) {
+            System.out.println("1 Subscribe");
+            System.out.println("2 Leave");
+            try {
+                int op = Integer.parseInt(in.readLine());
+                switch (op) {
+                    case 1:
+                        reader.subscribe(in);
+                        break;
+                    case 2:
+                        reader.close();
+                        return;
+                    default:
+                        System.out.println("invalid operation");
+
+                }
+            } catch (IOException e) {
+                System.out.println(e.getMessage());
+                System.exit(-1);
+            }
+        }
     }
 }
