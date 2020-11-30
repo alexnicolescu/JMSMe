@@ -53,4 +53,9 @@ public class News implements Serializable {
         return false;
     }
 
+    @Override
+    public int hashCode() {
+        return source.hashCode();
+    }
+
 }
