@@ -1,4 +1,3 @@
-
 import javax.jms.*;
 
 import org.apache.activemq.ActiveMQConnection;
@@ -14,41 +13,66 @@ public class Publisher {
     private Topic topic;
     private TopicConnection connection;
     private TopicSession session;
-    private List<News> news = new ArrayList<News>();
+    private List<News> news = new ArrayList<>();
     private String name;
+    private long numberOfReaders;
+
+    private class MessageHandler implements MessageListener {
+
+        public void onMessage(Message message) {
+            try {
+                ObjectMessage objMessage = (ObjectMessage) message;
+                String option = (String) objMessage.getObject();
+                if (option != null) {
+                    switch (option) {
+                        case "Increment":
+                            numberOfReaders++;
+                            break;
+                        case "Decrement":
+                            numberOfReaders--;
+                            break;
+                        default:
+                            System.out.println("Invalid option");
+                    }
+                }
+            } catch (JMSException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     public Publisher(String name) {
         this.name = name;
         connect();
     }
 
-    public void connect(){
+    public void connect() {
         try {
             String url = ActiveMQConnection.DEFAULT_BROKER_URL;
             TopicConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
             connection = connectionFactory.createTopicConnection();
             session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
             connection.start();
-        }catch(JMSException e){
+        } catch (JMSException e) {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
     }
 
-    public void send(News theNews,String topicName){
+    public void send(News theNews, String topicName) {
         try {
             topic = session.createTopic(topicName);
             TopicPublisher publisher = session.createPublisher(topic);
             ObjectMessage message = session.createObjectMessage();
             message.setObject(theNews);
             publisher.send(message);
-        }catch (JMSException e){
+        } catch (JMSException e) {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
     }
 
-    public void addNews(BufferedReader in){
+    public void addNews(BufferedReader in) {
 
         try {
             System.out.println("Domain: ");
@@ -58,10 +82,11 @@ public class Publisher {
             System.out.println("Text: ");
             String text = in.readLine();
 
-            News theNews = new News(domain,source,this.name,text);
+            News theNews = new News(domain, source, this.name, text);
             news.add(theNews);
-            this.send(theNews,domain+source);
-        }catch(IOException e){
+            this.send(theNews, domain + source);
+            subscribe(theNews);
+        } catch (IOException e) {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
@@ -74,6 +99,19 @@ public class Publisher {
     }
 
     public void getTheNumberOfReaders() {
+        System.out.println("Number of active readers:" + numberOfReaders);
+    }
+
+    public void subscribe(News news) {
+        try {
+            topic = session.createTopic(news.getDomain() + news.getSource() + news.getAuthor());
+            TopicSubscriber theReader = session.createSubscriber(topic);
+            theReader.setMessageListener(new Publisher.MessageHandler());
+        } catch (JMSException e) {
+            System.out.println(e.getMessage());
+            System.exit(-1);
+        }
+
     }
 
     public void close() throws JMSException {
@@ -83,7 +121,7 @@ public class Publisher {
                 session.close();
                 connection.close();
             }
-        }catch(JMSException e){
+        } catch (JMSException e) {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
