@@ -14,7 +14,7 @@ public class News implements Serializable {
         return author;
     }
 
-    public News(String domain, String source, String author, String text){
+    public News(String domain, String source, String author, String text) {
         this.domain = domain;
         this.source = source;
         this.author = author;
@@ -39,10 +39,11 @@ public class News implements Serializable {
         return domain;
     }
 
-    private void setText(String text){
+    private void setText(String text) {
         this.text = text;
     }
-    public void modify(String text){
+
+    public void modify(String text) {
         setText(text);
         this.lastModifiedDate = new Date().toString();
     }
