@@ -1,10 +1,5 @@
-package client;
-
 import javax.jms.*;
 
-import connection.Connector;
-import data.News;
-import event.NewsEvent;
 import lombok.Getter;
 
 import java.io.BufferedReader;
@@ -14,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
 
 public class Publisher {
 

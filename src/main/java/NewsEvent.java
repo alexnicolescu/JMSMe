@@ -1,13 +1,9 @@
-package event;
-
-import data.News;
-
 import java.io.Serializable;
 
 public class NewsEvent implements Serializable {
 
     public enum EventType {
-        NewsDeleted, NewsAdded, NewsRead, NewsModified
+        NewsDeleted, NewsAdded, NewsModified
     }
 
     public News news;

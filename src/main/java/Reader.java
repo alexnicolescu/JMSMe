@@ -1,9 +1,3 @@
-package client;
-
-import connection.Connector;
-import data.News;
-import event.NewsEvent;
-
 import javax.jms.*;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -29,7 +23,7 @@ public class Reader {
                 News news = event.news;
                 if (news != null) {
                     switch (event.type) {
-                        case NewsRead:
+                        case NewsAdded:
                             System.out.println("News created: ");
                             subscribedNews.add(news);
                             send(news.getDomain() + news.getSource() + news.getAuthor(), "Increment");
