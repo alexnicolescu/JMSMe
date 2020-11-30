@@ -3,7 +3,7 @@ import java.io.Serializable;
 public class NewsEvent implements Serializable {
 
     public enum EventType {
-        NewsDeleted, NewsAdded, NewsModified
+        NewsDeleted, NewsAdded, NewsModified, NewsRead, NewsUnsubscribed
     }
 
     public News news;

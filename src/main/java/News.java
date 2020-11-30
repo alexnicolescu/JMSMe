@@ -39,6 +39,11 @@ public class News implements Serializable {
     }
 
     @Override
+    public String toString() {
+        return domain + ", " + source;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (o instanceof News) {
             News newsToCompare = (News) o;

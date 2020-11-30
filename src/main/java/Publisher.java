@@ -5,10 +5,7 @@ import lombok.Getter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 
 public class Publisher {
@@ -22,7 +19,7 @@ public class Publisher {
     private final String name;
 
     @Getter
-    private long numberOfReaders;
+    private final Map<News, Long> readers = new HashMap<>();
 
     private class MessageHandler implements MessageListener {
 
@@ -30,18 +27,16 @@ public class Publisher {
         public void onMessage(Message message) {
             try {
                 ObjectMessage objMessage = (ObjectMessage) message;
-                String option = (String) objMessage.getObject();
-                if (option != null) {
-                    switch (option) {
-                        case "Increment":
-                            numberOfReaders++;
-                            break;
-                        case "Decrement":
-                            numberOfReaders--;
-                            break;
-                        default:
-                            System.out.println("Invalid option");
-                    }
+                NewsEvent event = (NewsEvent) objMessage.getObject();
+                News news = event.news;
+                switch (event.type) {
+                    case NewsRead:
+                        readers.put(news, readers.getOrDefault(news, 0L) + 1L);
+                        break;
+                    case NewsUnsubscribed:
+                        long oldValue = readers.getOrDefault(news, 0L);
+                        readers.put(news, oldValue > 0 ? oldValue - 1 : oldValue);
+                        break;
                 }
             } catch (JMSException e) {
                 e.printStackTrace();
@@ -107,6 +102,7 @@ public class Publisher {
                 NewsEvent event = new NewsEvent(news, NewsEvent.EventType.NewsDeleted);
                 this.send(event, domain + source);
                 this.news.remove(news);
+                readers.remove(news);
             } else {
                 System.out.println("data.News with domain " + domain + " and source " + source + " not found!");
             }
@@ -114,6 +110,11 @@ public class Publisher {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
+    }
+
+    public void printReaders() {
+        readers.forEach((news, numberOfReaders) -> System.out.println("News: " + news +
+                                                                      " with " + numberOfReaders + " readers"));
     }
 
     public void subscribe(News news) {
@@ -158,7 +159,7 @@ public class Publisher {
                         publisher.deleteNews(in);
                         break;
                     case 4:
-                        System.out.println("Number of active readers:" + publisher.getNumberOfReaders());
+                        publisher.printReaders();
                         break;
                     case 5: {
                         publisher.close();
