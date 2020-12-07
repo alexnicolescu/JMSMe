@@ -84,7 +84,22 @@ public class Publisher {
     }
 
     public void modifyNews(BufferedReader in) {
-
+        try {
+            System.out.println("Domain: ");
+            String domain = in.readLine();
+            System.out.println("Source: ");
+            String source = in.readLine();
+            System.out.println("New text: ");
+            String text = in.readLine();
+            News newNews=new News(domain,source,this.name,text);
+            int oldIndex = this.news.indexOf(newNews);
+            this.news.set(oldIndex,newNews);
+            NewsEvent event = new NewsEvent(newNews, NewsEvent.EventType.NewsModified);
+            this.send(event, domain + source);
+            subscribe(newNews);
+        } catch (IOException e) {
+            System.out.println("error");
+        }
     }
 
     public void deleteNews(BufferedReader in) {
