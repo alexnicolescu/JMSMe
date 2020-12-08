@@ -96,7 +96,6 @@ public class Publisher {
             this.news.set(oldIndex,newNews);
             NewsEvent event = new NewsEvent(newNews, NewsEvent.EventType.NewsModified);
             this.send(event, domain + source);
-            subscribe(newNews);
         } catch (IOException e) {
             System.out.println("error");
         }
