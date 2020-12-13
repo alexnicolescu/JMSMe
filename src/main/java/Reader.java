@@ -1,8 +1,6 @@
+import connection.Connector;
+
 import javax.jms.*;
-
-import org.apache.activemq.ActiveMQConnection;
-import org.apache.activemq.ActiveMQConnectionFactory;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -12,9 +10,10 @@ import java.util.List;
 public class Reader {
 
     private Topic topic;
-    private TopicConnection connection;
-    private TopicSession session;
-    private List<News> subscribedNews = new ArrayList<>();
+
+    private final Connector connector;
+
+    private final List<News> subscribedNews = new ArrayList<>();
 
 
     private class MessageHandler implements MessageListener {
@@ -38,39 +37,16 @@ public class Reader {
     }
 
     public Reader() {
-        connect();
-    }
-
-    public void connect() {
-        try {
-            String url = ActiveMQConnection.DEFAULT_BROKER_URL;
-            TopicConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
-            connection = connectionFactory.createTopicConnection();
-            session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-            connection.start();
-        } catch (JMSException e) {
-            System.out.println(e.getMessage());
-            System.exit(-1);
-        }
+        connector = new Connector();
     }
 
     public void close() {
-        try {
-            unsubscribe();
-            if (connection != null) {
-                connection.stop();
-                session.close();
-                connection.close();
-            }
-        } catch (JMSException e) {
-            System.out.println(e.getMessage());
-            System.exit(-1);
-        }
-
+        unsubscribe();
+        connector.close();
     }
 
     private void unsubscribe() {
-        for(News news:subscribedNews) {
+        for (News news:subscribedNews) {
             send(news.getDomain() + news.getSource() + news.getAuthor(), "Decrement");
         }
     }
@@ -82,6 +58,7 @@ public class Reader {
             System.out.println("Source: ");
             String source = in.readLine();
 
+            TopicSession session = connector.getSession();
             topic = session.createTopic(domain + source);
             TopicSubscriber theReader = session.createSubscriber(topic);
             theReader.setMessageListener(new MessageHandler());
@@ -94,6 +71,7 @@ public class Reader {
 
     public void send(String topicName, String option) {
         try {
+            TopicSession session = connector.getSession();
             Topic newTopic = session.createTopic(topicName);
             TopicPublisher publisher = session.createPublisher(newTopic);
             ObjectMessage message = session.createObjectMessage();

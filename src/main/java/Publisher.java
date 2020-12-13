@@ -1,5 +1,7 @@
 import javax.jms.*;
 
+import connection.Connector;
+import lombok.Getter;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 
@@ -10,11 +12,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Publisher {
+
     private Topic topic;
-    private TopicConnection connection;
-    private TopicSession session;
-    private List<News> news = new ArrayList<>();
-    private String name;
+
+    private final Connector connector;
+
+    private final List<News> news = new ArrayList<>();
+
+    private final String name;
+
+    @Getter
     private long numberOfReaders;
 
     private class MessageHandler implements MessageListener {
@@ -43,24 +50,12 @@ public class Publisher {
 
     public Publisher(String name) {
         this.name = name;
-        connect();
-    }
-
-    public void connect() {
-        try {
-            String url = ActiveMQConnection.DEFAULT_BROKER_URL;
-            TopicConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
-            connection = connectionFactory.createTopicConnection();
-            session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-            connection.start();
-        } catch (JMSException e) {
-            System.out.println(e.getMessage());
-            System.exit(-1);
-        }
+        connector = new Connector();
     }
 
     public void send(News theNews, String topicName) {
         try {
+            TopicSession session = connector.getSession();
             topic = session.createTopic(topicName);
             TopicPublisher publisher = session.createPublisher(topic);
             ObjectMessage message = session.createObjectMessage();
@@ -93,17 +88,16 @@ public class Publisher {
     }
 
     public void modifyNews(BufferedReader in) {
+
     }
 
     public void deleteNews(BufferedReader in) {
-    }
 
-    public void getTheNumberOfReaders() {
-        System.out.println("Number of active readers:" + numberOfReaders);
     }
 
     public void subscribe(News news) {
         try {
+            TopicSession session = connector.getSession();
             topic = session.createTopic(news.getDomain() + news.getSource() + news.getAuthor());
             TopicSubscriber theReader = session.createSubscriber(topic);
             theReader.setMessageListener(new Publisher.MessageHandler());
@@ -114,21 +108,11 @@ public class Publisher {
 
     }
 
-    public void close() throws JMSException {
-        try {
-            if (connection != null) {
-                connection.stop();
-                session.close();
-                connection.close();
-            }
-        } catch (JMSException e) {
-            System.out.println(e.getMessage());
-            System.exit(-1);
-        }
+    public void close() {
+        connector.close();
     }
 
-    public static void main(String[] args) throws JMSException {
-
+    public static void main(String[] args) {
         if (args.length != 1) {
             System.err.println("Usage: java Publisher <name>");
             System.exit(1);
@@ -154,7 +138,7 @@ public class Publisher {
                         publisher.deleteNews(in);
                         break;
                     case 4:
-                        publisher.getTheNumberOfReaders();
+                        System.out.println("Number of active readers:" + publisher.getNumberOfReaders());
                         break;
                     case 5: {
                         publisher.close();
