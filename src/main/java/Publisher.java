@@ -1,15 +1,12 @@
 import javax.jms.*;
 
-import connection.Connector;
 import lombok.Getter;
-import org.apache.activemq.ActiveMQConnection;
-import org.apache.activemq.ActiveMQConnectionFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+
 
 public class Publisher {
 
@@ -22,25 +19,24 @@ public class Publisher {
     private final String name;
 
     @Getter
-    private long numberOfReaders;
+    private final Map<News, Long> readers = new HashMap<>();
 
     private class MessageHandler implements MessageListener {
 
+        @Override
         public void onMessage(Message message) {
             try {
                 ObjectMessage objMessage = (ObjectMessage) message;
-                String option = (String) objMessage.getObject();
-                if (option != null) {
-                    switch (option) {
-                        case "Increment":
-                            numberOfReaders++;
-                            break;
-                        case "Decrement":
-                            numberOfReaders--;
-                            break;
-                        default:
-                            System.out.println("Invalid option");
-                    }
+                NewsEvent event = (NewsEvent) objMessage.getObject();
+                News news = event.news;
+                switch (event.type) {
+                    case NewsRead:
+                        readers.put(news, readers.getOrDefault(news, 0L) + 1L);
+                        break;
+                    case NewsUnsubscribed:
+                        long oldValue = readers.getOrDefault(news, 0L);
+                        readers.put(news, oldValue > 0 ? oldValue - 1 : oldValue);
+                        break;
                 }
             } catch (JMSException e) {
                 e.printStackTrace();
@@ -53,13 +49,13 @@ public class Publisher {
         connector = new Connector();
     }
 
-    public void send(News theNews, String topicName) {
+    public void send(NewsEvent event, String topicName) {
         try {
             TopicSession session = connector.getSession();
             topic = session.createTopic(topicName);
             TopicPublisher publisher = session.createPublisher(topic);
             ObjectMessage message = session.createObjectMessage();
-            message.setObject(theNews);
+            message.setObject(event);
             publisher.send(message);
         } catch (JMSException e) {
             System.out.println(e.getMessage());
@@ -68,7 +64,6 @@ public class Publisher {
     }
 
     public void addNews(BufferedReader in) {
-
         try {
             System.out.println("Domain: ");
             String domain = in.readLine();
@@ -77,10 +72,11 @@ public class Publisher {
             System.out.println("Text: ");
             String text = in.readLine();
 
-            News theNews = new News(domain, source, this.name, text);
-            news.add(theNews);
-            this.send(theNews, domain + source);
-            subscribe(theNews);
+            News news = new News(domain, source, this.name, text);
+            this.news.add(news);
+            NewsEvent event = new NewsEvent(news, NewsEvent.EventType.NewsAdded);
+            this.send(event, domain + source);
+            subscribe(news);
         } catch (IOException e) {
             System.out.println(e.getMessage());
             System.exit(-1);
@@ -92,20 +88,45 @@ public class Publisher {
     }
 
     public void deleteNews(BufferedReader in) {
+        try {
+            System.out.println("Domain: ");
+            String domain = in.readLine();
+            System.out.println("Source: ");
+            String source = in.readLine();
+            Optional<News> newsOpt = this.news.stream()
+                                              .filter(news -> Objects.equals(news.getDomain(), domain) &&
+                                                              Objects.equals(news.getSource(), source))
+                                              .findAny();
+            if (newsOpt.isPresent()) {
+                News news = newsOpt.get();
+                NewsEvent event = new NewsEvent(news, NewsEvent.EventType.NewsDeleted);
+                this.send(event, domain + source);
+                this.news.remove(news);
+                readers.remove(news);
+            } else {
+                System.out.println("data.News with domain " + domain + " and source " + source + " not found!");
+            }
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+            System.exit(-1);
+        }
+    }
 
+    public void printReaders() {
+        readers.forEach((news, numberOfReaders) -> System.out.println("News: " + news +
+                                                                      " with " + numberOfReaders + " readers"));
     }
 
     public void subscribe(News news) {
         try {
             TopicSession session = connector.getSession();
             topic = session.createTopic(news.getDomain() + news.getSource() + news.getAuthor());
-            TopicSubscriber theReader = session.createSubscriber(topic);
-            theReader.setMessageListener(new Publisher.MessageHandler());
+            TopicSubscriber reader = session.createSubscriber(topic);
+            reader.setMessageListener(new Publisher.MessageHandler());
         } catch (JMSException e) {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
-
     }
 
     public void close() {
@@ -114,7 +135,7 @@ public class Publisher {
 
     public static void main(String[] args) {
         if (args.length != 1) {
-            System.err.println("Usage: java Publisher <name>");
+            System.err.println("Usage: java client.Publisher <name>");
             System.exit(1);
         }
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
@@ -138,7 +159,7 @@ public class Publisher {
                         publisher.deleteNews(in);
                         break;
                     case 4:
-                        System.out.println("Number of active readers:" + publisher.getNumberOfReaders());
+                        publisher.printReaders();
                         break;
                     case 5: {
                         publisher.close();

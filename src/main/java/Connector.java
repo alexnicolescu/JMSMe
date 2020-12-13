@@ -1,5 +1,3 @@
-package connection;
-
 import lombok.Getter;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;

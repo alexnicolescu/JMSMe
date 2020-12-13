@@ -2,6 +2,7 @@ import lombok.Getter;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class News implements Serializable {
 
@@ -35,6 +36,26 @@ public class News implements Serializable {
     public void setText(String text) {
         this.text = text;
         this.lastModifiedDate = LocalDateTime.now().toString();
+    }
+
+    @Override
+    public String toString() {
+        return domain + ", " + source;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof News) {
+            News newsToCompare = (News) o;
+            return Objects.equals(newsToCompare.domain, domain) &&
+                   Objects.equals(newsToCompare.source, source);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return source.hashCode();
     }
 
 }

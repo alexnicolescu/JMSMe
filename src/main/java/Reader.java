@@ -1,5 +1,3 @@
-import connection.Connector;
-
 import javax.jms.*;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,20 +13,35 @@ public class Reader {
 
     private final List<News> subscribedNews = new ArrayList<>();
 
-
     private class MessageHandler implements MessageListener {
 
+        @Override
         public void onMessage(Message message) {
             try {
                 ObjectMessage objMessage = (ObjectMessage) message;
-                News news = (News) objMessage.getObject();
+                NewsEvent event = (NewsEvent) objMessage.getObject();
+                News news = event.news;
                 if (news != null) {
+                    switch (event.type) {
+                        case NewsAdded:
+                            System.out.println("News created: ");
+                            subscribedNews.add(news);
+                            NewsEvent respondEvent = new NewsEvent(news, NewsEvent.EventType.NewsRead);
+                            send(news.getDomain() + news.getSource() + news.getAuthor(), respondEvent);
+                            break;
+                        case NewsDeleted:
+                            System.out.println("News deleted: ");
+                            subscribedNews.remove(news);
+                            break;
+                        case NewsModified:
+                            System.out.println("News modified: ");
+                            //Stuff for modified here
+                            break;
+                    }
                     System.out.println("Domain:" + news.getDomain());
                     System.out.println("Author:" + news.getAuthor());
                     System.out.println("Source:" + news.getSource());
                     System.out.println("Text:" + news.getText());
-                    send(news.getDomain() + news.getSource() + news.getAuthor(), "Increment");
-                    subscribedNews.add(news);
                 }
             } catch (JMSException e) {
                 e.printStackTrace();
@@ -46,9 +59,10 @@ public class Reader {
     }
 
     private void unsubscribe() {
-        for (News news:subscribedNews) {
-            send(news.getDomain() + news.getSource() + news.getAuthor(), "Decrement");
-        }
+        subscribedNews.forEach(news -> {
+            NewsEvent event = new NewsEvent(news, NewsEvent.EventType.NewsUnsubscribed);
+            send(news.getDomain() + news.getSource() + news.getAuthor(), event);
+        });
     }
 
     public void subscribe(BufferedReader in) {
@@ -60,8 +74,8 @@ public class Reader {
 
             TopicSession session = connector.getSession();
             topic = session.createTopic(domain + source);
-            TopicSubscriber theReader = session.createSubscriber(topic);
-            theReader.setMessageListener(new MessageHandler());
+            TopicSubscriber reader = session.createSubscriber(topic);
+            reader.setMessageListener(new MessageHandler());
         } catch (IOException | JMSException e) {
             System.out.println(e.getMessage());
             System.exit(-1);
@@ -69,13 +83,13 @@ public class Reader {
 
     }
 
-    public void send(String topicName, String option) {
+    public void send(String topicName, NewsEvent event) {
         try {
             TopicSession session = connector.getSession();
             Topic newTopic = session.createTopic(topicName);
             TopicPublisher publisher = session.createPublisher(newTopic);
             ObjectMessage message = session.createObjectMessage();
-            message.setObject(option);
+            message.setObject(event);
             publisher.send(message);
         } catch (JMSException e) {
             System.out.println(e.getMessage());
