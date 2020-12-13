@@ -21,12 +21,12 @@ public class Reader {
                 ObjectMessage objMessage = (ObjectMessage) message;
                 NewsEvent event = (NewsEvent) objMessage.getObject();
                 News news = event.news;
+                NewsEvent respondEvent = new NewsEvent(news, NewsEvent.EventType.NewsRead);
                 if (news != null) {
                     switch (event.type) {
                         case NewsAdded:
                             System.out.println("News created: ");
                             subscribedNews.add(news);
-                            NewsEvent respondEvent = new NewsEvent(news, NewsEvent.EventType.NewsRead);
                             send(news.getDomain() + news.getSource() + news.getAuthor(), respondEvent);
                             break;
                         case NewsDeleted:
@@ -35,7 +35,10 @@ public class Reader {
                             break;
                         case NewsModified:
                             System.out.println("News modified: ");
-                            //Stuff for modified here
+                            if(!subscribedNews.contains(news)) {
+                                subscribedNews.add(news);
+                                send(news.getDomain() + news.getSource() + news.getAuthor(), respondEvent);
+                            }
                             break;
                     }
                     System.out.println("Domain:" + news.getDomain());

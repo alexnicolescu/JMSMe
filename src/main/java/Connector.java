@@ -15,7 +15,8 @@ public class Connector {
     public Connector() {
         try {
             String url = ActiveMQConnection.DEFAULT_BROKER_URL;
-            TopicConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
+            ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
+            connectionFactory.setTrustAllPackages(true);
             connection = connectionFactory.createTopicConnection();
             session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
             connection.start();
